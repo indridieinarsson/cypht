@@ -48,10 +48,7 @@ class Hm_Handler_pgp_import_public_key extends Hm_Handler_Module {
         if (!$success) {
             return;
         }
-        if (!is_array($this->request->files) || !array_key_exists('public_key', $this->request->files)) {
-            return;
-        }
-        if (!is_array($this->request->files['public_key']) || !array_key_exists('tmp_name', $this->request->files['public_key'])) {
+        if (! check_file_upload($this->request, 'public_key')) {
             return;
         }
         $fingerprint = validate_public_key($this->request->files['public_key']['tmp_name']);
@@ -72,7 +69,7 @@ class Hm_Handler_pgp_import_public_key extends Hm_Handler_Module {
  */
 class Hm_Handler_pgp_compose_data extends Hm_Handler_Module {
     public function process() {
-        $this->out('html_mail', $this->user_config->get('smtp_compose_type_setting', 0));
+        $this->out('html_mail', $this->user_config->get('smtp_compose_type_setting', DEFAULT_SMTP_COMPOSE_TYPE));
         $this->out('pgp_public_keys', $this->user_config->get('pgp_public_keys', array()));
     }
 }

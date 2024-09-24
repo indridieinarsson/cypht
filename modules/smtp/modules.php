@@ -229,7 +229,7 @@ class Hm_Handler_smtp_default_server extends Hm_Handler_Module {
 class Hm_Handler_process_compose_type extends Hm_Handler_Module {
     public function process() {
         function smtp_compose_type_callback($val) { return $val; }
-        process_site_setting('smtp_compose_type', $this, 'smtp_compose_type_callback');
+        process_site_setting('smtp_compose_type', $this, 'smtp_compose_type_callback', DEFAULT_SMTP_COMPOSE_TYPE);
     }
 }
 
@@ -239,7 +239,7 @@ class Hm_Handler_process_compose_type extends Hm_Handler_Module {
 class Hm_Handler_process_auto_bcc extends Hm_Handler_Module {
     public function process() {
         function smtp_auto_bcc_callback($val) { return $val; }
-        process_site_setting('smtp_auto_bcc', $this, 'smtp_auto_bcc_callback', false, true);
+        process_site_setting('smtp_auto_bcc', $this, 'smtp_auto_bcc_callback', DEFAULT_SMTP_AUTO_BCC, true);
     }
 }
 
@@ -325,16 +325,27 @@ class Hm_Handler_smtp_save_draft extends Hm_Handler_Module {
             return;
         }
 
+        $msg_attrs = array('draft_smtp' => $smtp, 'draft_to' => $to, 'draft_body' => $body,
+        'draft_subject' => $subject, 'draft_cc' => $cc, 'draft_bcc' => $bcc,
+        'draft_in_reply_to' => $inreplyto);
+        $uploaded_files = !$uploaded_files ? []: explode(',', $uploaded_files);
+        $profiles = $this->get('compose_profiles', array());
+        $profile = profile_from_compose_smtp_id($profiles, $smtp);
+
+        if ($this->get('save_draft_to_imap') === false) {
+            $from = isset($profile) ? $profile['replyto'] : '';
+            $name = isset($profile) ? $profile['name'] : '';
+            $mime = prepare_draft_mime($msg_attrs, $uploaded_files, $from, $name);
+            $this->out('draft_mime', $mime);
+            return;
+        }
+
         if ($this->module_is_supported('imap')) {
-            $uploaded_files = explode(',', $uploaded_files);
             $userpath = md5($this->session->get('username', false));
             foreach($uploaded_files as $key => $file) {
                 $uploaded_files[$key] = $this->config->get('attachment_dir').DIRECTORY_SEPARATOR.$userpath.DIRECTORY_SEPARATOR.$file;
             }
-            $new_draft_id = save_imap_draft(array('draft_smtp' => $smtp, 'draft_to' => $to, 'draft_body' => $body,
-                    'draft_subject' => $subject, 'draft_cc' => $cc, 'draft_bcc' => $bcc,
-                    'draft_in_reply_to' => $inreplyto), $draft_id, $this->session,
-                    $this, $this->cache, $uploaded_files);
+            $new_draft_id = save_imap_draft($msg_attrs, $draft_id, $this->session, $this, $this->cache, $uploaded_files, $profile);
             if ($new_draft_id >= 0) {
                 if ($draft_notice) {
                     Hm_Msgs::add('Draft saved');
@@ -392,7 +403,7 @@ class Hm_Handler_load_smtp_servers_from_config extends Hm_Handler_Module {
         }
 
         $this->out('uploaded_files', get_uploaded_files($draft_id, $this->session));
-        $compose_type = $this->user_config->get('smtp_compose_type_setting', 0);
+        $compose_type = $this->user_config->get('smtp_compose_type_setting', DEFAULT_SMTP_COMPOSE_TYPE);
         if ($this->get('is_mobile', false)) {
             $compose_type = 0;
         }
@@ -700,7 +711,7 @@ class Hm_Handler_process_compose_form_submit extends Hm_Handler_Module {
         $smtp_id = server_from_compose_smtp_id($form['compose_smtp_id']);
         $to = $form['compose_to'];
         $subject = $form['compose_subject'];
-        $body_type = $this->get('smtp_compose_type', 0);
+        $body_type = $this->get('smtp_compose_type', DEFAULT_SMTP_COMPOSE_TYPE);
         $draft = array(
             'draft_to' => $form['compose_to'],
             'draft_body' => '',
@@ -781,7 +792,7 @@ class Hm_Handler_process_compose_form_submit extends Hm_Handler_Module {
         }
 
         /* check for auto-bcc */
-        $auto_bcc = $this->user_config->get('smtp_auto_bcc_setting', false);
+        $auto_bcc = $this->user_config->get('smtp_auto_bcc_setting', DEFAULT_SMTP_AUTO_BCC);
         if ($auto_bcc) {
             $mime->set_auto_bcc($from);
             $bcc_err_msg = $smtp->send_message($from, array($from), $mime->get_mime_msg());
@@ -858,7 +869,7 @@ class Hm_Handler_smtp_auto_bcc_check extends Hm_Handler_Module {
      * Set the auto bcc state for output modules to use
      */
     public function process() {
-        $this->out('auto_bcc_enabled', $this->user_config->get('smtp_auto_bcc_setting', 0));
+        $this->out('auto_bcc_enabled', $this->user_config->get('smtp_auto_bcc_setting', DEFAULT_SMTP_AUTO_BCC));
     }
 }
 
@@ -939,7 +950,12 @@ class Hm_Output_enable_attachment_reminder_setting extends Hm_Output_Module {
         $settings = $this->get('user_settings');
         if (array_key_exists('enable_attachment_reminder', $settings) && $settings['enable_attachment_reminder']) {
             $checked = ' checked="checked"';
-            $reset = '<span class="tooltip_restore" restore_aria_label="Restore default value"><i class="bi bi-arrow-repeat refresh_list reset_default_value_checkbox"></i></span>';
+            if(!$settings['enable_attachment_reminder']) {
+                $reset = '<span class="tooltip_restore" restore_aria_label="Restore default value"><i class="bi bi-arrow-repeat refresh_list reset_default_value_checkbox"></i></span>';
+            }
+            else {
+                $reset='';
+            }
         }
         else {
             $checked = '';
@@ -948,7 +964,7 @@ class Hm_Output_enable_attachment_reminder_setting extends Hm_Output_Module {
         return '<tr class="general_setting"><td><label class="form-check-label" for="enable_attachment_reminder">'.
             $this->trans('Enable Attachment Reminder').'</label></td>'.
             '<td><input type="checkbox" '.$checked.
-            ' value="1" id="enable_attachment_reminder" class="form-check-input" name="enable_attachment_reminder" />'.$reset.'</td></tr>';
+            ' value="1" id="enable_attachment_reminder" class="form-check-input" name="enable_attachment_reminder" data-default-value="false" />'.$reset.'</td></tr>';
     }
 }
 
@@ -982,7 +998,7 @@ class Hm_Output_compose_form_start extends Hm_Output_Module {
     protected function output() {
         $res = '<div class="container">';
         $res .= '<div class="row justify-content-md-center">';
-        $res .= '<div class="col col-lg-8">';
+        $res .= '<div class="col col-lg-10 col-xl-8">';
         $res .= '<form class="compose_form p-4" method="post" action="?page=compose" data-reminder="' . $this->get('enable_attachment_reminder', 0) . '">';
         return $res;
     }
@@ -1048,7 +1064,7 @@ class Hm_Output_compose_form_content extends Hm_Output_Module {
         $reply = $this->get('reply_details', array());
         $imap_draft = $this->get('imap_draft', array());
         $reply_type = $this->get('reply_type', '');
-        $html = $this->get('smtp_compose_type', 0);
+        $html = $this->get('smtp_compose_type', DEFAULT_SMTP_COMPOSE_TYPE);
         $msg_path = $this->get('list_path', '');
         $msg_uid = $this->get('uid', '');
         $from = $this->get('compose_from');
@@ -1343,13 +1359,13 @@ class Hm_Output_add_smtp_server_dialog extends Hm_Output_Module {
  */
 class Hm_Output_compose_type_setting extends Hm_Output_Module {
     protected function output() {
-        $selected = 2;
+        $selected = DEFAULT_SMTP_COMPOSE_TYPE;
         $settings = $this->get('user_settings', array());
         $reset = '';
         if (array_key_exists('smtp_compose_type', $settings)) {
             $selected = $settings['smtp_compose_type'];
         }
-        $res = '<tr class="general_setting"><td>'.$this->trans('Outbound mail format').'</td><td><select class="form-select form-select-sm w-auto" name="smtp_compose_type">';
+        $res = '<tr class="general_setting"><td>'.$this->trans('Outbound mail format').'</td><td><select class="form-select form-select-sm w-auto" name="smtp_compose_type" data-default-value="'.DEFAULT_SMTP_COMPOSE_TYPE.'">';
         $res .= '<option ';
         if ($selected == 0) {
             $res .= 'selected="selected" ';
@@ -1375,12 +1391,12 @@ class Hm_Output_compose_type_setting extends Hm_Output_Module {
  */
 class Hm_Output_auto_bcc_setting extends Hm_Output_Module {
     protected function output() {
-        $auto = false;
+        $auto = DEFAULT_SMTP_AUTO_BCC;
         $settings = $this->get('user_settings', array());
         if (array_key_exists('smtp_auto_bcc', $settings)) {
             $auto = $settings['smtp_auto_bcc'];
         }
-        $res = '<tr class="general_setting"><td><label class="form-check-label" for="smtp_auto_bcc">'.$this->trans('Always BCC sending address').'</label></td><td><input class="form-check-input" value="1" type="checkbox" name="smtp_auto_bcc" id="smtp_auto_bcc"';
+        $res = '<tr class="general_setting"><td><label class="form-check-label" for="smtp_auto_bcc">'.$this->trans('Always BCC sending address').'</label></td><td><input class="form-check-input" value="1" type="checkbox" name="smtp_auto_bcc" id="smtp_auto_bcc"  data-default-value="false"';
         $reset = '';
         if ($auto) {
             $res .= ' checked="checked"';
@@ -1446,26 +1462,26 @@ class Hm_Output_display_configured_smtp_servers extends Hm_Output_Module {
             $res .= '<form class="smtp_connect"  method="POST"><div class="row">';
             $res .= '<input type="hidden" name="hm_page_key" value="'.$this->html_safe(Hm_Request_Key::generate()).'" />';
             $res .= '<input type="hidden" name="smtp_server_id" value="'.$this->html_safe($index).'" />';
-            $res .= '<div class="row m-0 p-0 credentials-container"><div class="col-xl-2 col-lg-2 col-md-6 mb-2">';
+            $res .= '<div class="row m-0 p-0 credentials-container"><div class="col-lg-2 col-md-6 mb-2">';
             $res .= sprintf('<div class="text-muted"><strong>%s</strong></div>
                 <div class="server_subtitle">%s/%d %s</div>',
                 $this->html_safe($vals['name']), $this->html_safe($vals['server']), $this->html_safe($vals['port']), $vals['tls'] ? 'TLS' : '' );
-            $res .= '</div><div class="col-xl-7 col-lg-7 col-md-9"><div class="row"><div class="col-xl-4 col-lg-4 col-md-6">';
+            $res .= '</div><div class="col-xl-7 col-lg-7 col-md-9"><div class="row"><div class="col-md-6 col-lg-4">';
 
             // SMTP Username
             $res .= '<div class="form-floating">';
             $res .= '<input '.$disabled.' class="form-control credentials" id="smtp_user_'.$index.'" type="text" name="smtp_user" value="'.$this->html_safe($user_pc).'" placeholder="'.$this->trans('Username').'">';
             $res .= '<label for="smtp_user_'.$index.'">'.$this->trans('SMTP username').'</label></div>';
-            $res .= '</div><div class="col-xl-4 col-lg-4 col-md-6">';
+            $res .= '</div><div class="col-md-6 col-lg-4">';
 
             // SMTP Password
             $res .= '<div class="form-floating">';
             $res .= '<input '.$disabled.' class="form-control credentials smtp_password" type="password" id="smtp_pass_'.$index.'" name="smtp_pass" value="'.$pass_value.'" placeholder="'.$pass_pc.'">';
             $res .= '<label for="smtp_pass_'.$index.'">'.$this->trans('SMTP password').'</label></div>';
-            $res .= '</div><div class="col-xl-4 col-lg-4 col-md-6"></div>';
+            $res .= '</div><div class="col-md-6 col-lg-4"></div>';
 
             // Buttons
-            $res .= '</div> </div> <div class="col-xl-3 col-lg-3  d-flex justify-content-start align-items-center">';
+            $res .= '</div> </div> <div class="col-lg-3 d-flex justify-content-start align-items-center">';
             if (!$no_edit) {
                 if (!isset($vals['user']) || !$vals['user']) {
                     $res .= '<input type="submit" value="'.$this->trans('Delete').'" class="delete_smtp_connection btn btn-light border btn-sm me-2" />';
@@ -1877,16 +1893,34 @@ function get_uploaded_files_from_array($uploaded_files) {
 }
 }
 
+function prepare_draft_mime($atts, $uploaded_files, $from = false, $name = '') {
+    $uploaded_files = get_uploaded_files_from_array($uploaded_files);
+    $mime = new Hm_MIME_Msg(
+        $atts['draft_to'],
+        $atts['draft_subject'],
+        $atts['draft_body'],
+        $from,
+        false,
+        $atts['draft_cc'],
+        $atts['draft_bcc'],
+        '',
+        $name,
+        $atts['draft_in_reply_to']
+    );
+
+    $mime->add_attachments($uploaded_files);
+
+    return $mime;
+}
+
 /**
  * @subpackage smtp/functions
  */
 if (!hm_exists('save_imap_draft')) {
-function save_imap_draft($atts, $id, $session, $mod, $mod_cache, $uploaded_files) {
+function save_imap_draft($atts, $id, $session, $mod, $mod_cache, $uploaded_files, $profile) {
     $imap_profile = false;
     $from = false;
     $name = '';
-    $profiles = $mod->get('compose_profiles', array());
-    $profile = profile_from_compose_smtp_id($profiles, $atts['draft_smtp']);
     $uploaded_files = get_uploaded_files_from_array($uploaded_files);
 
     if ($profile  && $profile['type'] == 'imap' && $mod->module_is_supported('imap')) {
@@ -1918,20 +1952,7 @@ function save_imap_draft($atts, $id, $session, $mod, $mod_cache, $uploaded_files
     $imap = Hm_IMAP_List::connect($imap_profile['id'], $cache);
     $draft_folder = $imap->select_mailbox($specials['draft']);
 
-    $mime = new Hm_MIME_Msg(
-        $atts['draft_to'],
-        $atts['draft_subject'],
-        $atts['draft_body'],
-        $from,
-        false,
-        $atts['draft_cc'],
-        $atts['draft_bcc'],
-        '',
-        $name,
-        $atts['draft_in_reply_to']
-    );
-
-    $mime->add_attachments($uploaded_files);
+    $mime = prepare_draft_mime($atts, $uploaded_files, $from, $name);
     $res = $mime->process_attachments();
 
     $msg = str_replace("\r\n", "\n", $mime->get_mime_msg());
