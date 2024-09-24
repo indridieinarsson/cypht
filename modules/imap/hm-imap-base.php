@@ -73,7 +73,6 @@ class Hm_IMAP_Base {
         $literal_data = $this->fgets($line_length);
         $lit_size = strlen($literal_data);
         $current += $lit_size;
-        // We need to use non-multibyte string lengths, since "$size" is in bytes
         while ($lit_size < $size) {
             $chunk = $this->fgets($line_length);
             $chunk_size = strlen($chunk);
