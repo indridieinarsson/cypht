@@ -553,8 +553,13 @@ class Hm_Output_page_js extends Hm_Output_Module {
                 $rel_name = str_replace(APP_PATH, '', $name);
                 $mod = str_replace(array('modules', DIRECTORY_SEPARATOR), '', $rel_name);
                 if (in_array($mod, $mods, true)) {
-                    $directoriesPattern = str_replace('/', DIRECTORY_SEPARATOR, "{*,*/*}");
-                    foreach (glob($name.'js_modules' . DIRECTORY_SEPARATOR . $directoriesPattern . "*.js", GLOB_BRACE) as $js) {
+                    $dirPatternZeroLevel = $name.'js_modules' . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . "*.js";
+                    $dirPatternFirstLevel = $name.'js_modules' . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR .  "*.js";
+                    $js_modules = array_merge( 
+                        glob($dirPatternZeroLevel), 
+                        glob($dirPatternFirstLevel)
+                    ); 
+                    foreach ($js_modules as $js) {
                         if (preg_match('/\[(.+)\]/', $js, $matches)) {
                             $dep = $matches[1];
                             if (in_array($dep, $js_exclude_dependencies)) {

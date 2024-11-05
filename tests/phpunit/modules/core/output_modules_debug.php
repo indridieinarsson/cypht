@@ -40,8 +40,13 @@ class Hm_Test_Core_Output_Modules_Debug extends TestCase {
             $name = str_replace(array(APP_PATH, 'modules', DIRECTORY_SEPARATOR), '', $module);
             if (in_array($name, $given_router_module_list)) {
                 // js_modules
-                $directoriesPattern = str_replace('/', DIRECTORY_SEPARATOR, "{*,*/*}");
-                foreach (glob($module.'js_modules' . DIRECTORY_SEPARATOR . $directoriesPattern . "*.js", GLOB_BRACE) as $js) {
+                $dirPatternZeroLevel = $module.'js_modules' . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . "*.js";
+                $dirPatternFirstLevel = $module.'js_modules' . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR .  "*.js";
+                $js_modules = array_merge( 
+                    glob($dirPatternZeroLevel), 
+                    glob($dirPatternFirstLevel)
+                ); 
+                foreach ($js_modules as $js) {
                     $expected_scripts[] = WEB_ROOT.str_replace(APP_PATH, '', $js);
                 }
                 if ($name === 'core') {

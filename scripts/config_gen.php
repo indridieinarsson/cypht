@@ -189,8 +189,13 @@ function get_module_assignments($settings) {
                     $js .= file_get_contents($js_module);
                 }
             }
-            $directoriesPattern = str_replace('/', DIRECTORY_SEPARATOR, "{*,*/*}");
-            foreach (glob('modules' . DIRECTORY_SEPARATOR . $mod . DIRECTORY_SEPARATOR . 'js_modules' . DIRECTORY_SEPARATOR . $directoriesPattern . '*.js', GLOB_BRACE) as $js_module) {
+            $dirPatternZeroLevel = 'modules' . DIRECTORY_SEPARATOR . $mod . DIRECTORY_SEPARATOR . 'js_modules' . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . '*.js';
+            $dirPatternFirstLevel = 'modules' . DIRECTORY_SEPARATOR . $mod . DIRECTORY_SEPARATOR . 'js_modules' . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . '*.js';
+            $js_modules = array_merge(
+                glob($dirPatternZeroLevel), 
+                glob($dirPatternFirstLevel)
+            ); 
+            foreach ($js_modules as $js_module) {
                 if (preg_match('/\[(.+)\]/', $js_module, $matches)) {
                     $dep = $matches[1];
                     if (in_array($dep, $js_exclude_dependencies)) {
