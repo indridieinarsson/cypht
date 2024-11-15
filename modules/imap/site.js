@@ -259,7 +259,7 @@ var imap_message_list_content = function(id, folder, hook, batch_callback) {
                 add_auto_folder(res.auto_sent_folder);
             }
 
-            Hm_Message_List.update(ids, res.formatted_message_list, 'imap');
+            Hm_Message_List.update(res.formatted_message_list);
 
             $('.page_links').html(res.page_links);
             cache_imap_page();
@@ -326,26 +326,6 @@ var add_imap_combined_source = function(event) {
     return update_imap_combined_source(getListPathParam(), 1, event);
 };
 
-var imap_combined_unread_content = function(id, folder) {
-    return imap_message_list_content(id, folder, 'ajax_imap_unread', Hm_Message_List.set_unread_state);
-};
-
-var imap_combined_flagged_content = function(id, folder) {
-    return imap_message_list_content(id, folder, 'ajax_imap_flagged', Hm_Message_List.set_flagged_state);
-};
-
-var imap_combined_inbox_content = function(id, folder) {
-    return imap_message_list_content(id, folder, 'ajax_imap_combined_inbox', Hm_Message_List.set_combined_inbox_state);
-};
-
-var imap_folder_content = function(id, folder) {
-    return imap_message_list_content(id, folder, 'ajax_imap_folder_data', cache_folder_data);
-};
-
-var imap_tag_content = function(id, folder) {
-    return imap_message_list_content(id, folder, 'ajax_imap_tag_data', cache_folder_data);
-};
-
 var cache_imap_page = function() {
     var key = 'imap_'+Hm_Utils.get_url_page_number()+'_'+getListPathParam();
     var data = Hm_Message_List.filter_list();
@@ -390,6 +370,11 @@ async function select_imap_folder(path, reload, processInTheBackground = false, 
     await messages.load(reload, processInTheBackground).then(() => {        
         display_imap_mailbox(messages.rows, messages.links, path);
     });
+
+    if (path === 'unread') {
+        Hm_Message_List.set_unread_state();
+    }
+
     return messages;
 };
 
@@ -447,13 +432,8 @@ $('#imap_filter_form').on('submit', async function(event) {
 });
 
 var display_imap_mailbox = function(rows, links, path = getListPathParam()) {
-    const detail = Hm_Utils.parse_folder_path(path, 'imap');
-    const serverIds = [];
-    if (detail) {
-        serverIds.push(detail.server_id);
-    }
     if (rows) {
-        Hm_Message_List.update(serverIds, rows, 'imap');
+        Hm_Message_List.update(rows);
         Hm_Message_List.check_empty_list();
         $('.page_links').html(links);
         $('input[type=checkbox]').on("click", function(e) {

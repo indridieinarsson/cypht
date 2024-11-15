@@ -950,7 +950,7 @@ class Hm_Output_sent_folder_link extends Hm_Output_Module {
         if (!$this->get('hide_folder_icons')) {
             $res .= '<i class="bi bi-send-check-fill menu-icon"></i>';
         }
-        $res .= $this->trans('Sent').'</a></li>';
+        $res .= '<span class="nav-label">'.$this->trans('Sent').'</span></a></li>';
         $this->concat('formatted_folder_list', $res);
     }
 }
@@ -1436,7 +1436,7 @@ class Hm_Output_display_configured_smtp_servers extends Hm_Output_Module {
 
             $res .= '<form class="smtp_connect"  method="POST"><div class="row">';
             $res .= '<input type="hidden" name="hm_page_key" value="'.$this->html_safe(Hm_Request_Key::generate()).'" />';
-            $res .= '<input type="hidden" name="smtp_server_id" value="'.$this->html_safe($index).'" />';
+            $res .= '<input type="hidden" name="smtp_server_id" class="smtp_server_id" value="'.$this->html_safe($index).'" />';
             $res .= '<div class="row m-0 p-0 credentials-container"><div class="col-lg-2 col-md-6 mb-2 overflow-auto">';
             $res .= sprintf('<div class="text-muted"><strong>%s</strong></div>
                 <div class="server_subtitle">%s/%d %s</div>',
@@ -1486,7 +1486,7 @@ class Hm_Output_compose_page_link extends Hm_Output_Module {
         if (!$this->get('hide_folder_icons')) {
             $res .= '<i class="bi bi-file-earmark-text menu-icon"></i>';
         }
-        $res .= $this->trans('Compose').'</a></li>';
+        $res .= '<span class="nav-label">'.$this->trans('Compose').'</span></a></li>';
 
         if ($this->format == 'HTML5') {
             return $res;
@@ -1581,7 +1581,7 @@ function smtp_server_dropdown($data, $output_mod, $recip, $selected_id=false) {
                         $res .= 'selected="selected" ';
                     }
                     $res .= 'value="'.$output_mod->html_safe($vals['id'].'.'.($index+1)).'">';
-                    $res .= $output_mod->html_safe(sprintf('"%s" %s %s', $profile['name'], $profile['address'], $vals['name']));
+                    $res .= $output_mod->html_safe(sprintf('"%s" %s %s', $profile['name'], ($profile['name'] != $profile['address']) ? $profile['address']: "", ($vals['name'] != $profile['name'] && $vals['name'] != $profile['address']) ? $vals['name'] : ""));
                     $res .= '</option>';
                 }
             }
@@ -1591,7 +1591,7 @@ function smtp_server_dropdown($data, $output_mod, $recip, $selected_id=false) {
                     $res .= 'selected="selected" ';
                 }
                 $res .= 'value="'.$output_mod->html_safe($vals['id']).'">';
-                $res .= $output_mod->html_safe(sprintf("%s - %s", $vals['user'], $vals['name']));
+                $res .= $output_mod->html_safe(($vals['user'] == $vals['name']) ? $vals['user'] : sprintf("%s - %s", $vals['user'], $vals['name']));
                 $res .= '</option>';
             }
         }
