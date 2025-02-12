@@ -2,7 +2,7 @@
 
 var get_smtp_profile = function(profile_value) {
     if (typeof profile_value === "undefined" || profile_value == "0" || profile_value == "") {
-        Hm_Notices.show([err_msg('Please create a profile for saving sent messages option')]);
+        Hm_Notices.show('Please create a profile for saving sent messages option', 'warning');
     }
     else {
         Hm_Ajax.request(
@@ -15,13 +15,12 @@ var get_smtp_profile = function(profile_value) {
 };
 
 var check_attachment_dir_access = function() {
-    Hm_Notices.show([err_msg('Attachment storage unavailable, please contact your site administrator')]);
+    Hm_Notices.show('Attachment storage unavailable, please contact your site administrator', 'warning');
 };
 
 var smtp_test_action = function(event) {
     event.preventDefault();
     var form = $(this).closest('.smtp_connect');
-    Hm_Notices.hide(true);
     Hm_Ajax.request(
         [{'name': 'hm_ajax_hook', 'value': 'ajax_smtp_debug'},
             {'name': 'smtp_server_id', 'value': $('.smtp_server_id', form).val()}],
@@ -35,7 +34,6 @@ var smtp_delete_action = function(event) {
         return false;
     }
     event.preventDefault();
-    Hm_Notices.hide(true);
     var form = $(this).closest('.smtp_connect');
     Hm_Ajax.request(
         form.serializeArray(),
@@ -235,7 +233,6 @@ var move_recipient_to_section = function(e) {
     target.find('.bubbles').append($('#'+id));
     var input = target.find('input');
     input.focus();
-    resize_input(input[0]);
 };
 
 var allow_drop = function(e) {
@@ -264,12 +261,6 @@ var bubbles_to_text = function(input) {
     $(input).css('width', '95%');
 };
 
-var resize_input = function(input) {
-    $(input).css('width', 'auto');
-    var input_width = $(input).parent().outerWidth() - $(input).position().left;
-    $(input).css('width', input_width);
-};
-
 var text_to_bubbles = function(input) {
     var contact_id = input.getAttribute("data-id");
     var contact_type = input.getAttribute("data-type");
@@ -292,7 +283,6 @@ var text_to_bubbles = function(input) {
         }
         $(input).val(invalid_recipients);
     }
-    resize_input(input);
 };
 
 var bubble_index = 0;

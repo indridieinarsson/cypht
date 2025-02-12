@@ -119,9 +119,6 @@ table {
 td {
   vertical-align: top;
 }
-.search_content .combined_sort {
-  display: none;
-}
 .offline {
   display: none;
   cursor: pointer;
@@ -694,6 +691,7 @@ button {
 .flagged_setting,
 .general_setting,
 .junk_setting,
+.snoozed_setting,
 .trash_setting,
 .drafts_setting,
 .privacy_setting {
@@ -1008,6 +1006,8 @@ div.unseen,
 }
 .mobile .message_table {
   padding-left: 5px !important;
+}
+.mobile .message_list {
   margin-top: 30px !important;
 }
 .mobile .list_settings_link {
@@ -1490,4 +1490,13 @@ a[disabled] {
   cursor: default;
   pointer-events: none;
   opacity: 0.6;
+}
+
+.pagination .btn {
+  background-color: #eee;
+}
+
+.pagination .btn.active {
+  background-color: var(--bs-primary);
+  color: var(--bs-white);
 }

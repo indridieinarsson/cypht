@@ -355,22 +355,13 @@ class Hm_Output_msgs extends Hm_Output_Module {
      */
     protected function output() {
         $res = '';
-        $msgs = Hm_Msgs::get();
+        $msgs = Hm_Msgs::getRaw();
         $logged_out_class = '';
         if (!$this->get('router_login_state') && !empty($msgs)) {
             $logged_out_class = ' logged_out';
         }
-        $res .= '<div class="d-none position-fixed top-0 end-0 mt-3 me-3 sys_messages'.$logged_out_class.'">';
-        foreach ($msgs as $msg) {
-            if (preg_match("/ERR/", $msg)) {
-                $res .= sprintf('<div class="alert alert-danger alert-dismissible fade show" role="alert"><i class="bi bi-exclamation-triangle me-2"></i><span class="danger">%s</span>', $this->trans(mb_substr((string) $msg, 3)));
-            }
-            else {
-                $res .= sprintf('<div class="alert alert-success alert-dismissible fade show" role="alert"><i class="bi bi-check-circle me-2"></i><span class="info">%s</span>', $this->trans($msg));
-            }
-            $res .= '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>';
-        }
-        $res .= '</div>';
+        $res .= '<div class="position-fixed top-0 col-sm-4 col-md-3 end-0 mt-3 me-3 sys_messages'.$logged_out_class.'"></div>';
+        $res .= '<script type="text/javascript">var hm_msgs = '.json_encode($msgs).'</script>';
         return $res;
     }
 }
@@ -1384,6 +1375,11 @@ class Hm_Output_main_menu_content extends Hm_Output_Module {
             $res .= '<i class="bi bi-pencil-square menu-icon"></i>';
         }
         $res .= '<span class="nav-label">'.$this->trans('Drafts').'</span></a></li>';
+        $res .= '<li class="menu_snoozed"><a class="unread_link" href="?page=message_list&amp;list_path=snoozed">';
+        if (!$this->get('hide_folder_icons')) {
+            $res .= '<i class="bi bi-clock-fill menu-icon"></i>';
+        }
+        $res .= '<span class="nav-label">'.$this->trans('Snoozed').'</span></a></li>';
 
         if ($this->format == 'HTML5') {
             return $res;
@@ -1877,7 +1873,7 @@ class Hm_Output_message_list_start extends Hm_Output_Module {
                 $header_flds[] = '<th></th>';
             }
         }
-        $res = '<div class="p-3"><table class="message_table table pt-5">';
+        $res = '<div class="p-3"><table class="message_table table">';
         if (!$this->get('no_message_list_headers')) {
             if (!empty($col_flds)) {
                 $res .= '<colgroup>'.implode('', $col_flds).'</colgroup>';
@@ -1996,7 +1992,7 @@ class Hm_Output_message_list_end extends Hm_Output_Module {
      * Close the table opened in Hm_Output_message_list_start
      */
     protected function output() {
-        $res = '</tbody></table></div><div class="mb-5 page_links d-flex justify-content-center gap-3 align-content-center"></div></div>';
+        $res = '</tbody></table></div></div>';
         return $res;
     }
 }
@@ -2136,7 +2132,62 @@ class Hm_Output_trash_since_setting extends Hm_Output_Module {
             '<td>'.message_since_dropdown($since, 'trash_since', $this, DEFAULT_TRASH_SINCE).'</td></tr>';
     }
 }
-
+/**
+ * Starts the Snoozed section on the settings page
+ * @subpackage core/output
+ */
+class Hm_Output_start_snoozed_settings extends Hm_Output_Module {
+    /**
+     * Settings in this section control the snoozed messages view
+     */
+    protected function output() {
+        return '<tr><td data-target=".snoozed_setting" colspan="2" class="settings_subtitle cursor-pointer border-bottom p-2">'.
+            '<i class="bi bi-clock-fill fs-5 me-2"></i>'.
+            $this->trans('Snoozed').'</td></tr>';
+    }
+}
+/**
+ * Option for the maximum number of messages per source for the Snoozed page
+ * @subpackage core/output
+ */
+class Hm_Output_snoozed_source_max_setting extends Hm_Output_Module {
+    /**
+     * Processed by Hm_Handler_process_snoozed_source_max_setting
+     */
+    protected function output() {
+        $sources = DEFAULT_SNOOZED_PER_SOURCE;
+        $settings = $this->get('user_settings', array());
+        $reset = '';
+        if (array_key_exists('snoozed_per_source', $settings)) {
+            $sources = $settings['snoozed_per_source'];
+        }
+        if ($sources != DEFAULT_SNOOZED_PER_SOURCE) {
+            $reset = '<span class="tooltip_restore" restore_aria_label="Restore default value"><i class="bi bi-arrow-repeat refresh_list reset_default_value_input"></i></span>';
+        }
+        return '<tr class="snoozed_setting"><td><label for="snoozed_per_source">'.
+            $this->trans('Max messages per source for Snoozed').'</label></td>' .
+            '<td class="d-flex"><input class="form-control form-control-sm w-auto" type="text" size="2" id="snoozed_per_source" name="snoozed_per_source" value="'.$this->html_safe($sources).'" data-default-value="'.DEFAULT_SNOOZED_PER_SOURCE.'" />'.$reset.'</td></tr>';
+    }
+}
+/**
+ * Option for the snoozed messages date range
+ * @subpackage core/output
+ */
+class Hm_Output_snoozed_since_setting extends Hm_Output_Module {
+    /**
+     * Processed by Hm_Handler_process_snoozed_since_setting
+     */
+    protected function output() {
+        $since = DEFAULT_SNOOZED_SINCE;
+        $settings = $this->get('user_settings', array());
+        if (array_key_exists('snoozed_since', $settings) && $settings['snoozed_since']) {
+            $since = $settings['snoozed_since'];
+        }
+        return '<tr class="snoozed_setting"><td><label for="snoozed_since">'.
+            $this->trans('Show snoozed messages since').'</label></td>'.
+            '<td>'.message_since_dropdown($since, 'snoozed_since', $this, DEFAULT_SNOOZED_SINCE).'</td></tr>';
+    }
+}
 /**
  * Starts the Draft section on the settings page
  * @subpackage core/output
@@ -2444,6 +2495,5 @@ class Hm_output_combined_message_list extends Hm_Output_Module {
             $messageList = array_merge($messageList, $this->get('feed_list_data'), Hm_Output_filter_feed_list_data::formatMessageList($this));
         }
         $this->out('formatted_message_list', $messageList);
-        $this->out('page_links', 'There is no pagination in this view, please visit the individual mail boxes.');
     }
 }

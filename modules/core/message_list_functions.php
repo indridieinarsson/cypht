@@ -50,6 +50,12 @@ function get_message_list_settings($path, $handler) {
         $per_source_limit = $handler->user_config->get('junk_per_source_setting', DEFAULT_JUNK_PER_SOURCE);
         $mailbox_list_title = array('Junk');
     }
+    elseif ($path == 'snoozed') {
+        $list_path = 'snoozed';
+        $message_list_since = $handler->user_config->get('snoozed_since_setting', DEFAULT_SNOOZED_SINCE);
+        $per_source_limit = $handler->user_config->get('snoozed_per_source_setting', DEFAULT_SNOOZED_PER_SOURCE);
+        $mailbox_list_title = array('Snoozed');
+    }
     elseif ($path == 'trash') {
         $list_path = 'trash';
         $message_list_since = $handler->user_config->get('trash_since_setting', DEFAULT_TRASH_SINCE);
@@ -126,12 +132,13 @@ function message_list_meta($input, $output_mod) {
  */
 if (!hm_exists('combined_sort_dialog')) {
 function combined_sort_dialog($mod) {
-    $dt_sort = $mod->get('default_sort_order', 'arrival');
-    $sorts = array(
-        '4' => $dt_sort == 'arrival' ? $mod->trans('Arrival Date') : $mod->trans('Sent Date'),
-        '2' => $mod->trans('From'),
-        '3' => $mod->trans('Subject'),
-    );
+    $sorts = [
+        'arrival' => $mod->trans('Arrival Date'),
+        'date' => $mod->trans('Sent Date'),
+        'from' => $mod->trans('From'),
+        'to' => $mod->trans('To'),
+        'subject' => $mod->trans('Subject')
+    ];
 
     $res = '<select name="sort" style="width: 150px" class="combined_sort form-select form-select-sm">';
     foreach ($sorts as $name => $val) {
@@ -335,6 +342,14 @@ function date_callback($vals, $style, $output_mod) {
     }
     return sprintf('<td class="msg_date%s" title="%s">%s<input type="hidden" class="msg_timestamp" value="%s" /></td>', $snooze_class, $output_mod->html_safe(date('r', $vals[1])), $output_mod->html_safe($vals[0]), $output_mod->html_safe($vals[1]));
 }}
+
+function dates_holders_callback($vals) {
+    $res = '<td class="dates d-none">';
+    $res .= '<input type="hidden" name="arrival" class="arrival" value="'. $vals[0] .'" arial-label="Arrival date" />';
+    $res .= '<input type="hidden" name="date" class="date" value="'. $vals[1] .'" arial-label="Sent date" />';
+    $res .= '</td>';
+    return $res;
+}
 
 /**
  * Callback for an icon in a message list row
@@ -601,80 +616,4 @@ function search_field_selection($current, $output_mod) {
     }
     $res .= '</select>';
     return $res;
-}}
-
-/**
- * Build pagination links for a list of messages
- * @subpackage core/functions
- * @param int $page_size number of messages per page
- * @param int $current current page number
- * @param int $total number of messages total
- * @param string $path list path
- * @param string $filter list filter
- * @param string $sort list sort
- * @return string
- */
-if (!hm_exists('build_page_links')) {
-function build_page_links($page_size, $current_page, $total, $path, $filter=false, $sort=false, $keyword=false) {
-    $links = '';
-    $first = '';
-    $last = '';
-    $display_links = 10;
-    if ($filter) {
-        $filter_str = '&amp;filter='.$filter;
-    }
-    else {
-        $filter_str = '';
-    }
-    if ($sort) {
-        $sort_str = '&amp;sort='.$sort;
-    }
-    else {
-        $sort_str = '';
-    }
-    if ($keyword) {
-        $keyword_str = '&amp;keyword='.$keyword;
-    }
-    else {
-        $keyword_str = '';
-    }
-
-    $max_pages = ceil($total/$page_size);
-    if ($max_pages == 1) {
-        return '';
-    }
-    $floor = ($current_page - 1) - intval($display_links/2);
-    if ($floor < 0) {
-        $floor = 1;
-    }
-    $ceil = $floor + $display_links;
-    if ($ceil > $max_pages) {
-        $floor -= ($ceil - $max_pages);
-    }
-    $prev = '<a class="disabled_link"><i class="bi bi-caret-left-fill"></i></a>';
-    $next = '<a class="disabled_link"><i class="bi bi-caret-right-fill"></i></a>';
-
-    if ($floor > 1 ) {
-        $first = '<a href="?page=message_list&amp;list_path='.urlencode($path).'&amp;list_page=1'.$keyword_str.$filter_str.$sort_str.'">1</a> ... ';
-    }
-    if ($ceil < $max_pages) {
-        $last = ' ... <a href="?page=message_list&amp;list_path='.urlencode($path).'&amp;list_page='.$max_pages.$keyword_str.$filter_str.$sort_str.'">'.$max_pages.'</a>';
-    }
-    if ($current_page > 1) {
-        $prev = '<a href="?page=message_list&amp;list_path='.urlencode($path).'&amp;list_page='.($current_page - 1).$keyword_str.$filter_str.$sort_str.'"><i class="bi bi-caret-left-fill"></i></a>';
-    }
-    if ($max_pages > 1 && $current_page < $max_pages) {
-        $next = '<a href="?page=message_list&amp;list_path='.urlencode($path).'&amp;list_page='.($current_page + 1).$keyword_str.$filter_str.$sort_str.'"><i class="bi bi-caret-right-fill"></i></a>';
-    }
-    for ($i=1;$i<=$max_pages;$i++) {
-        if ($i < $floor || $i > $ceil) {
-            continue;
-        }
-        $links .= ' <a ';
-        if ($i == $current_page) {
-            $links .= 'class="current_page fw-bolder" ';
-        }
-        $links .= 'href="?page=message_list&amp;list_path='.urlencode($path).'&amp;list_page='.$i.$keyword_str.$filter_str.$sort_str.'">'.$i.'</a>';
-    }
-    return $prev.' '.$first.$links.$last.' '.$next;
 }}

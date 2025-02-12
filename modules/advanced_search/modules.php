@@ -52,19 +52,19 @@ class Hm_Handler_process_adv_search_request extends Hm_Handler_Module {
         }
         if (!$this->validate_date($form['adv_start']) ||
             !$this->validate_date($form['adv_end'])) {
-            Hm_Msgs::add('ERRInvalid date format');
+            Hm_Msgs::add('Invalid date format', 'warning');
             return;
         }
         $flags = array('ALL');
         if (array_key_exists('adv_flags', $this->request->post)) {
             if (!$this->validate_flags($this->request->post['adv_flags'])) {
-                Hm_Msgs::add('ERRInvalid flag');
+                Hm_Msgs::add('Invalid flag', 'warning');
                 return;
             }
             $flags = $this->request->post['adv_flags'];
         }
         if (!$this->validate_source($form['adv_source'])) {
-            Hm_Msgs::add('ERRInvalid source');
+            Hm_Msgs::add('Invalid source', 'warning');
             return;
         }
         $charset = false;
@@ -99,7 +99,7 @@ class Hm_Handler_process_adv_search_request extends Hm_Handler_Module {
             $msg_list = $this->special_folders_search($mailbox, $flags, $params, $limit);
         } else if ($includeSubfolders) {
             $msg_list = $this->all_folders_search($mailbox, $flags, $params, $limit, $this->folder);
-        } else if (! $mailbox->select_mailbox($this->folder)) {
+        } else if (! $mailbox->select_folder($this->folder)) {
             return;
         } else {
             $msg_list = $this->imap_search($flags, $mailbox, $params, $limit);
@@ -131,7 +131,7 @@ class Hm_Handler_process_adv_search_request extends Hm_Handler_Module {
         $msg_list = array();
         foreach ($folders as $folder) {
             $this->folder = $folder;
-            $mailbox->select_mailbox($this->folder);
+            $mailbox->select_folder($this->folder);
             $msgs = $this->imap_search($flags, $mailbox, $params, $limit);
             $msg_list = array_merge($msg_list, $msgs);
         }

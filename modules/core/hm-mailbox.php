@@ -23,31 +23,31 @@ class Hm_Mailbox {
     protected $server_id;
     protected $user_config;
     protected $session;
+    protected $config;
 
-    public function __construct($server_id, $user_config, $session) {
+    public function __construct($server_id, $user_config, $session, $config) {
         $this->server_id = $server_id;
         $this->user_config = $user_config;
         $this->session = $session;
-    }
-
-    public function connect(array $config) {
-        if (array_key_exists('type', $config) && $config['type'] == 'smtp') {
-            $this->type = self::TYPE_SMTP;
-            $this->connection = new Hm_SMTP($config);
-            return $this->connection->connect();
-        } elseif (array_key_exists('type', $config) && $config['type'] == 'jmap') {
-            $this->type = self::TYPE_JMAP;
-            $this->connection = new Hm_JMAP();
-            return $this->connection->connect($config);
-        } elseif (array_key_exists('type', $config) && $config['type'] == 'ews') {
-            $this->type = self::TYPE_EWS;
-            $this->connection = new Hm_EWS();
-            return $this->connection->connect($config);
-        } else {
+        $this->config = $config;
+        $type = $config['type'] ?? '';
+        if ($type == 'imap') {
             $this->type = self::TYPE_IMAP;
             $this->connection = new Hm_IMAP();
-            return $this->connection->connect($config);
+        } elseif ($type == 'jmap') {
+            $this->type = self::TYPE_JMAP;
+            $this->connection = new Hm_JMAP();
+        } elseif ($type == 'ews') {
+            $this->type = self::TYPE_EWS;
+            $this->connection = new Hm_EWS();
+        } elseif ($type == 'smtp') {
+            $this->type = self::TYPE_SMTP;
+            $this->connection = new Hm_SMTP($config);
         }
+    }
+
+    public function connect() {
+        return $this->connection->connect($this->config);
     }
 
     public function get_connection() {
@@ -205,7 +205,7 @@ class Hm_Mailbox {
             return;
         }
         if ($this->is_imap()) {
-            return $this->connection->get_mailbox_list($only_subscribed);
+            return $this->connection->get_mailbox_list($only_subscribed, children_capability: $this->connection->server_support_children_capability());
         } else {
             return $this->connection->get_folders(null, $only_subscribed, $this->user_config->get('unsubscribed_folders')[$this->server_id] ?? []);
         }
@@ -569,7 +569,7 @@ class Hm_Mailbox {
         }
     }
 
-    protected function select_folder($folder) {
+    public function select_folder($folder) {
         if ($this->is_imap()) {
             if (isset($this->connection->selected_mailbox['name']) && $this->connection->selected_mailbox['name'] == $folder) {
                 return true;

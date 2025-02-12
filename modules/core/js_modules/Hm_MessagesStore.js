@@ -19,10 +19,12 @@ class Hm_MessagesStore {
         this.path = path;
         this.list = path + '_' + page;
         this.rows = rows;
-        this.links = "";
         this.count = 0;
         this.flagAsReadOnOpen = true;
         this.abortController = abortController;
+        this.pages = 0;
+        this.page = page;
+        this.offsets = '';
     }
 
     /**
@@ -39,24 +41,28 @@ class Hm_MessagesStore {
      */
     async load(reload = false, hideLoadingState = false, doNotFetch = false) {
         const storedMessages = this.#retrieveFromLocalStorage();
-        if (storedMessages && !reload) {
+        if (storedMessages) {
             this.rows = storedMessages.rows;
-            this.links = storedMessages.links;
+            this.pages = parseInt(storedMessages.pages);
             this.count = storedMessages.count;
             this.flagAsReadOnOpen = storedMessages.flagAsReadOnOpen;
-            return this;
+            this.offsets = storedMessages.offsets;
+            if (!reload) {
+                return this;
+            }
         }
 
         if (doNotFetch) {
             return this;
         }
 
-        const { formatted_message_list: updatedMessages, page_links: pageLinks, folder_status, do_not_flag_as_read_on_open } = await this.#fetch(hideLoadingState);
+        const { formatted_message_list: updatedMessages, pages, folder_status, do_not_flag_as_read_on_open, offsets } = await this.#fetch(hideLoadingState);
 
         this.count = folder_status && Object.values(folder_status)[0]?.messages;
-        this.links = pageLinks;
+        this.pages = parseInt(pages);
         this.rows = updatedMessages;
         this.flagAsReadOnOpen = !do_not_flag_as_read_on_open;
+        this.offsets = offsets;
 
         this.#saveToLocalStorage();
 
@@ -173,10 +179,9 @@ class Hm_MessagesStore {
         } else {
             switch (this.path) {
                 case 'unread':
-                    hook = "ajax_imap_unread";
-                    break;
                 case 'flagged':
-                    hook = "ajax_imap_flagged";
+                    hook = "ajax_imap_filter_by_type";
+                    config.push({ name: "filter_type", value: this.path });
                     break;
                 case 'combined_inbox':
                     hook = "ajax_combined_message_list";
@@ -195,12 +200,13 @@ class Hm_MessagesStore {
         }
         
         config.push({ name: "hm_ajax_hook", value: hook });
+        config.push({ name: "list_page", value: this.page });
 
         return config;
     }
 
     #saveToLocalStorage() {
-        Hm_Utils.save_to_local_storage(this.list, JSON.stringify({ rows: this.rows, links: this.links, count: this.count }));
+        Hm_Utils.save_to_local_storage(this.list, JSON.stringify({ rows: this.rows, pages: this.pages, count: this.count, offsets: this.offsets }));
         Hm_Utils.save_to_local_storage('flagAsReadOnOpen', this.flagAsReadOnOpen);
     }
 

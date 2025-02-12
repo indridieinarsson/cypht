@@ -34,6 +34,9 @@ function imap_sources($mod, $folder = 'sent') {
         elseif ($inbox) {
             $sources[] = array('folder' => bin2hex('INBOX'), 'folder_name' => 'INBOX', 'type' => $vals['type'] ?? 'imap', 'name' => $vals['name'], 'id' => $index);
         }
+        elseif ($folder=="snoozed"){
+            $sources[] = array('folder' => bin2hex('Snoozed'), 'folder_name' => 'Snoozed', 'type' => $vals['type'] ?? 'imap','name' => $vals['name'],'id' => $index);
+        }
         else {
             $sources[] = array('folder' => bin2hex('SPECIAL_USE_CHECK'), 'folder_name' => 'SPECIAL_USE_CHECK', 'nodisplay' => true, 'type' => $vals['type'] ?? 'imap', 'name' => $vals['name'], 'id' => $index);
         }
@@ -57,7 +60,8 @@ function imap_data_sources($custom=array()) {
         if (!array_key_exists('user', $vals)) {
             continue;
         }
-        $sources[] = array('folder' => bin2hex('INBOX'), 'folder_name' => 'INBOX', 'type' => $vals['type'] ?? 'imap', 'name' => $vals['name'], 'id' => $index);
+        $sieve = ! empty($vals['sieve_config_host']);
+        $sources[] = array('folder' => bin2hex('INBOX'), 'folder_name' => 'INBOX', 'type' => $vals['type'] ?? 'imap', 'name' => $vals['name'], 'id' => $index,  'sieve' => $sieve);
     }
     foreach ($custom as $path => $type) {
         $parts = explode('_', $path, 3);
@@ -313,6 +317,7 @@ function format_imap_message_list($msg_list, $output_module, $parent_list=false,
                     array('safe_output_callback', 'source', $source),
                     array('safe_output_callback', 'from'.$nofrom, $from, null, str_replace(array($from, '<', '>'), '', $msg['from'])),
                     array('date_callback', $date, $timestamp),
+                    array('dates_holders_callback', $msg['internal_date'], $msg['date']),
                 ),
                 $id,
                 $style,
@@ -327,7 +332,8 @@ function format_imap_message_list($msg_list, $output_module, $parent_list=false,
                     array('safe_output_callback', 'from'.$nofrom, $from, null, str_replace(array($from, '<', '>'), '', $msg['from'])),
                     array('subject_callback', $subject, $url, $flags, null, $preview_msg),
                     array('date_callback', $date, $timestamp, $is_snoozed),
-                    array('icon_callback', $flags)
+                    array('icon_callback', $flags),
+                    array('dates_holders_callback', $msg['internal_date'], $msg['date']),
                 ),
                 $id,
                 $style,
@@ -1137,6 +1143,19 @@ function process_sort_arg($sort, $default = 'arrival') {
 /**
  * @subpackage imap/functions
  */
+if (!hm_exists('search_since_based_on_setting')) {
+function search_since_based_on_setting($config) {
+    if ($config->get('default_sort_order_setting', 'arrival') === 'arrival') {
+        return 'SINCE';
+    } else {
+        return 'SENTSINCE';
+    }
+}}
+
+
+/**
+ * @subpackage imap/functions
+ */
 if (!hm_exists('imap_server_type')) {
 function imap_server_type($id) {
     $type = 'IMAP';
@@ -1559,11 +1578,11 @@ if (!hm_exists('connect_to_imap_server')) {
                 $client = $sieveClientFactory->init(null, $server, $context->module_is_supported('nux'));
 
                 if (!$client && $show_errors) {
-                    Hm_Msgs::add("ERRFailed to authenticate to the Sieve host");
+                    Hm_Msgs::add("Failed to authenticate to the Sieve host", "warning");
                 }
             } catch (Exception $e) {
                 if ($show_errors) {
-                    Hm_Msgs::add("ERRFailed to authenticate to the Sieve host");
+                    Hm_Msgs::add("Failed to authenticate to the Sieve host", "warning");
                 }
                 if (! $server_id) {
                     Hm_IMAP_List::del($imap_server_id);
@@ -1579,9 +1598,133 @@ if (!hm_exists('connect_to_imap_server')) {
         } else {
             Hm_IMAP_List::del($imap_server_id);
             if ($show_errors) {
-                Hm_Msgs::add('ERRAuthentication failed');
+                Hm_Msgs::add('Authentication failed', 'warning');
             }
             return null;
         }
     }
+}
+
+/**
+ * @param array $sources
+ * @param object $cache
+ * @param array $search
+ */
+function getCombinedMessagesLists($sources, $cache, $search) {
+    $defaultSearch = [
+        'filter' => 'ALL',
+        'sort' => 'ARRIVAL',
+        'reverse' => true,
+        'terms' => [],
+        'limit' => 10,
+        'offsets' => [],
+        'defaultOffset' => 0,
+        'listPage' => 1
+    ];
+    $search = array_merge($defaultSearch, $search);
+
+    $filter = $search['filter'];
+    $sort = $search['sort'];
+    $reverse = $search['reverse'];
+    $searchTerms = $search['terms'];
+    $limit = $search['limit'];
+    $offsets = $search['offsets'];
+    $listPage = $search['listPage'];
+
+    $totalMessages = 0;
+    $offset = $search['defaultOffset'];
+    $messagesLists = [];
+    $status = [];
+    foreach ($sources as $index => $dataSource) {
+
+        if ($offsets && $listPage > 1) {
+            if (isset($offsets[$index]) && (int) $offsets[$index] > 0) {
+                $offset = (int) $offsets[$index] * ($listPage - 1);
+            }
+        }
+
+        $mailbox = Hm_IMAP_List::get_connected_mailbox($dataSource['id'], $cache);
+        if ($mailbox && $mailbox->authed()) {
+            $connection = $mailbox->get_connection();
+
+            $folder = $dataSource['folder'];
+            $mailbox->select_folder(hex2bin($folder));
+            $state = $connection->get_mailbox_status(hex2bin($folder));
+            $status['imap_'.$dataSource['id'].'_'.$folder] = $state;
+
+            if ($mailbox->is_imap()) {
+                if ($connection->is_supported( 'SORT' )) {
+                    $sortedUids = $connection->get_message_sort_order($sort, $reverse, $filter);
+                } else {
+                    $sortedUids = $connection->sort_by_fetch($sort, $reverse, $filter);
+                }
+
+                $uids = $mailbox->search(hex2bin($folder), $filter, $sortedUids, $searchTerms);
+            } else {
+                // EWS
+                $uids = $connection->search($folder, $sort, $reverse, $filter, 0, $limit, $searchTerms);
+            }
+
+            $total = count($uids);
+            $uids = array_slice($uids, $offset, $limit);
+
+            $headers = $mailbox->get_message_list(hex2bin($folder), $uids);
+            $messages = [];
+            foreach ($uids as $uid) {
+                if (isset($headers[$uid])) {
+                    $messages[] = $headers[$uid];
+                }
+            }
+
+            $messagesLists[] = array_map(function($msg) use ($dataSource, $folder) {
+                $msg['server_id'] = $dataSource['id'];
+                $msg['server_name'] = $dataSource['name'];
+                $msg['folder'] = $folder;
+                return $msg;
+            }, $messages);
+            $totalMessages += $total;
+        }
+    }
+    
+    return ['lists' => $messagesLists, 'total' => $totalMessages, 'status' => $status];
+}
+
+function flattenMessagesLists($messagesLists, $listSize) {
+    $endList = [];
+    $sizesTaken = [];
+
+    $max = $listSize * count($messagesLists);
+
+    while (count($endList) < $listSize * count($messagesLists) && count(array_filter($messagesLists, fn ($list) => count($list) > 0)) > 0) {
+        foreach ($messagesLists as $index => $list) {
+            if (count($list) > 0) {
+                $part = array_slice($list, 0, $listSize);
+                $endList = array_merge($endList, $part);
+                $messagesLists[$index] = array_slice($list, $listSize);
+                $sizesTaken[$index] = isset($sizesTaken[$index]) ? $sizesTaken[$index] + count($part) : count($part);
+                $totalTakens = array_sum(array_values($sizesTaken));
+                if ($totalTakens > $max) {
+                    $sizesTaken[$index] = $sizesTaken[$index] - ($totalTakens - $max);
+                }
+            } else {
+                $sizesTaken[$index] = isset($sizesTaken[$index]) ? $sizesTaken[$index] : 0;
+            }
+        }
+    }
+
+    $endList = array_slice($endList, 0, $max);
+
+    return ['messages' => $endList, 'offsets' => $sizesTaken];
+}
+
+function sortCombinedMessages($list, $sort) {
+    usort($list, function($a, $b) use ($sort) {
+        $sortField = str_replace(['arrival', '-'], ['internal_date', ''], $sort);
+        if (strpos($sort, '-') === 0) {
+            return strtotime($a[$sortField]) - strtotime($b[$sortField]);
+        }
+        return strtotime($b[$sortField]) - strtotime($a[$sortField]);
+    });
+
+    return $list;
 }

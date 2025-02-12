@@ -73,6 +73,30 @@ var hm_sieve_condition_fields = function() {
     };
 };
 
+var load_sieve_filters = function(pageName) {
+    const dataSources = hm_data_sources() ?? [];
+    if (dataSources.length) {
+        dataSources.forEach((source) => {
+            if(source.sieve){
+                let spinnerId = `spinner_${source.id}`;
+                let spinnnerText = hm_spinner_text(`${source.name}`, spinnerId);
+                $('#sieve_accounts').append(spinnnerText);
+                Hm_Ajax.request(
+                    [{'name': 'hm_ajax_hook', 'value': pageName},
+                        {'name': 'imap_server_id', 'value': source.id}],
+                    (res) => {
+                        $(`#${spinnerId}`).remove();
+                        $('#sieve_accounts').append(res.sieve_detail_display);
+                    
+                    }
+                );
+            }
+            
+        })
+    }
+    return false;
+};
+
 /**
  * Possible Sieve actions
  * @type {[{name: string, description: string, placeholder: string, type: string, selected: boolean},{name: string, description: string, placeholder: string, type: string},{name: string, description: string, type: string},{name: string, description: string, type: string},{name: string, description: string, placeholder: string, type: string}]}
@@ -235,7 +259,7 @@ function blockListPageHandlers() {
                 {'name': 'change_behavior', 'value': true}
             ],
             function(res) {
-                if (/^(Sender|Domain) Behavior Changed$/.test(res.router_user_msgs[0])) {
+                if (/^(Sender|Domain) Behavior Changed$/.test(res.router_user_msgs[0].text)) {
                     window.location = window.location;
                 }
             }
@@ -284,9 +308,10 @@ function blockListPageHandlers() {
         );
     });
 
-    $('.sievefilters_accounts_title').on("click", function () {
+    $(document).off('click').on('click', '.sievefilters_accounts_title', function() {
         $(this).parent().find('.sievefilters_accounts').toggleClass('d-none');
     });
+    load_sieve_filters('ajax_block_account_sieve_filters');
 }
 
 function cleanUpSieveFiltersPage() {
@@ -389,7 +414,7 @@ function sieveFiltersPageHandler() {
 
         let idx = 0;
         if (conditions.length === 0) {
-            Hm_Utils.add_sys_message(hm_trans('You must provide at least one condition'), 'danger');
+            Hm_Notices.show('You must provide at least one condition', 'warning');
             return false;
         }
 
@@ -399,7 +424,7 @@ function sieveFiltersPageHandler() {
                 let order = ordinal_number(key + 1);
                 let previous_messages = $('.sys_messages').html();
                 previous_messages += previous_messages ? '<br>': '';
-                Hm_Utils.add_sys_message('The ' + order + ' condition (' + elem + ') must be provided', 'danger');
+                Hm_Notices.show('The ' + order + ' condition (' + elem + ') must be provided', 'warning');
                 validation_failed = true;
             }
              conditions_parsed.push(
@@ -428,7 +453,7 @@ function sieveFiltersPageHandler() {
         }).get();
 
         if (actions_type.length === 0) {
-            Hm_Utils.add_sys_message(hm_trans('You must provide at least one action'), 'danger');
+            Hm_Notices.show('You must provide at least one action', 'warning');
             return false;
         }
 
@@ -439,7 +464,7 @@ function sieveFiltersPageHandler() {
                 let order = ordinal_number(key + 1);
                 let previous_messages = $('.sys_messages').html();
                 previous_messages += previous_messages ? '<br>': '';
-                Hm_Utils.add_sys_message('The ' + order + ' action (' + elem + ') must be provided', 'danger');
+                Hm_Notices.show('The ' + order + ' action (' + elem + ') must be provided', 'waring');
                 validation_failed = true;
             }
             actions_parsed.push(
@@ -464,7 +489,7 @@ function sieveFiltersPageHandler() {
             )
         }
         if ($('.modal_sieve_filter_name').val() == "") {
-            Hm_Utils.add_sys_message(hm_trans('Filter name is required'), 'danger');
+            Hm_Notices.show('Filter name is required', 'danger');
             return false;
         }
 
@@ -501,11 +526,11 @@ function sieveFiltersPageHandler() {
 
     function save_script(imap_account) {
         if ($('.modal_sieve_script_name').val() === "") {
-            Hm_Utils.add_sys_message(hm_trans('You must provide a name for your script'), 'danger');
+            Hm_Notices.show('You must provide a name for your script', 'warning');
             return false;
         }
         if ($('.modal_sieve_script_textarea').val() === "") {
-            Hm_Utils.add_sys_message(hm_trans('Empty script'), 'danger');
+            Hm_Notices.show('Empty script', 'warning');
             return false;
         }
         Hm_Ajax.request(
@@ -525,10 +550,11 @@ function sieveFiltersPageHandler() {
     /**************************************************************************************
      *                                      MODAL EVENTS
      **************************************************************************************/
-    $('.sievefilters_accounts_title').on("click", function () {
+    $(document).off('click').on('click', '.sievefilters_accounts_title', function() {
         $(this).parent().find('.sievefilters_accounts').toggleClass('d-none');
     });
-    $('.add_filter').on('click', function () {
+
+    $(document).on('click', '.add_filter', function() {
         edit_filter_modal.setTitle('Add Filter');
         $('.modal_sieve_filter_priority').val('');
         $('.modal_sieve_filter_test').val('ALLOF');
@@ -542,7 +568,7 @@ function sieveFiltersPageHandler() {
         $(".sieve_list_conditions_modal").empty();
         $(".filter_actions_modal_table").empty();
     });
-    $('.add_script').on('click', function () {
+    $(document).on('click', '.add_script', function() {
         edit_script_modal.setTitle('Add Script');
         $('.modal_sieve_script_textarea').val('');
         $('.modal_sieve_script_name').val('');
@@ -975,6 +1001,7 @@ function sieveFiltersPageHandler() {
             }
         );
     });
+    load_sieve_filters('ajax_account_sieve_filters');
 }
 
 $(function () {

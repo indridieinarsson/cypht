@@ -38,6 +38,9 @@ function applySearchPageHandlers(routeParams) {
     Hm_Message_List.select_combined_view();
     sortHandlerForMessageListAndSearchPage();
     $('.search_reset').on("click", Hm_Utils.reset_search_form);
+    $('.combined_sort').on("change", function() { Hm_Message_List.sort($(this).val()); });
+
+    performSearch(routeParams);
 
     if (window.inlineMessageMessageListAndSearchPageHandler) inlineMessageMessageListAndSearchPageHandler(routeParams);
     if (window.savedSearchesSearchPageHandler) savedSearchesSearchPageHandler();
@@ -67,6 +70,8 @@ function applyInfoPageHandlers() {
 function applyMessaleListPageHandlers(routeParams) {
     sortHandlerForMessageListAndSearchPage();
     Hm_Message_List.set_row_events();
+    const messagesStore = new Hm_MessagesStore(routeParams.list_path, routeParams.list_page);
+    Hm_Utils.tbody().attr('id', messagesStore.list);
 
     $('.core_msg_control').on("click", function(e) {
         e.preventDefault();
@@ -76,10 +81,17 @@ function applyMessaleListPageHandlers(routeParams) {
         e.preventDefault();
         Hm_Message_List.toggle_rows();
     });
-    
+
+    get_list_block_sieve();
+
     if (routeParams.list_path === 'github_all') {
         return applyGithubMessageListPageHandler(routeParams);
     }
+    
+
+    $('.combined_sort').on("change", function() {
+        sortCombinedLists($(this).val());
+    });
 
     // TODO: Refactor this handler to be more modular(applicable only for the imap list type)
     return applyImapMessageListPageHandlers(routeParams);
@@ -102,7 +114,9 @@ function applyMessagePageHandlers(routeParams) {
 }
 
 function applyComposePageHandlers(routeParams) {
-    applySmtpComposePageHandlers(routeParams);
+    if (hm_is_logged()) {
+        applySmtpComposePageHandlers(routeParams);
+    }
     if (hm_module_is_supported('contacts')) {
         applyContactsAutocompleteComposePageHandlers(routeParams);
     }

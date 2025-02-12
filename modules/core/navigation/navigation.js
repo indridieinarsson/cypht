@@ -76,6 +76,8 @@ async function navigate(url) {
 
         window.location.next = url;
 
+        scrollTo(0, 0);
+
         const unMountCallback = renderPage(url);
 
         history.pushState({ main: cyphtMain, head }, "", url);
@@ -89,7 +91,7 @@ async function navigate(url) {
         
         trackLocationSearchChanges();
     } catch (error) {
-        Hm_Notices.show([`ERR${error.message}`]);
+        Hm_Notices.show(error.message, 'danger');
     } finally {
         hideRoutingToast();
     }
