@@ -1,18 +1,21 @@
 <?php
+error_reporting(E_ALL);
 
 if (mb_strtolower(php_sapi_name()) !== 'cli') {
     die("Must be run from the command line\n");
 }
 
-const APP_PATH = '';
+const APP_PATH = '/usr/local/share/cypht/';
 
-require 'lib/framework.php';
+require '/usr/local/share/cypht/lib/framework.php';
 
-require 'modules/core/message_functions.php';
-require 'modules/core/message_list_functions.php';
+require '/usr/local/share/cypht/modules/core/message_functions.php';
+require '/usr/local/share/cypht/modules/core/message_list_functions.php';
 
-require 'modules/imap/hm-imap.php';
-require 'modules/core/hm-mailbox.php';
+require '/usr/local/share/cypht/modules/imap/hm-imap.php';
+require '/usr/local/share/cypht/modules/core/hm-mailbox.php';
+Hm_Functions::error_log(sprintf(' worker starts' ));
+try{
 
 $input = trim(fgets(STDIN));
 $data = json_decode($input, true);
@@ -81,4 +84,7 @@ if ($mailbox && $mailbox->authed()) {
     ]);
 } else {
     exit;
+}
+} catch (\Exception $e) {
+		     Hm_Functions::error_log(sprintf(' error processing mailbox' .$e->getMessage() ));
 }

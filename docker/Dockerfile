@@ -79,6 +79,7 @@ COPY modules/ modules/
 COPY scripts/ scripts/
 COPY third_party/ third_party/
 COPY index.php index.php
+run ln -sf /usr/local/etc/php/php.ini-development /usr/local/etc/php/php.ini
 
 COPY docker/docker-entrypoint.sh docker/docker-entrypoint.sh
 COPY .env.example .env

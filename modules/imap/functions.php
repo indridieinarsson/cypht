@@ -1649,10 +1649,17 @@ function getCombinedMessagesLists($sources, $context, $search) {
                 $process->stdin->end();
 
                 $process->stdout->on('data', function ($output) use ($resolve) {
+		     Hm_Functions::error_log(sprintf(' worker exited normally' ));
                     $resolve(json_decode($output, true));
                 });
 
+            $process->stderr->on('data', function ($errorOutput) {
+                error_log('Worker error output: ' . $errorOutput);
+		Hm_Functions::error_log(sprintf(' worker emitted errors' . $errorOutput ));
+            });
+
                 $process->on('exit', function ($exitCode) use ($reject) {
+		     Hm_Functions::error_log(sprintf(' worker exited with error' . $exitCode ));
                     $reject(new \Exception('Worker exited with code ' . $exitCode));
                 });
         });
@@ -1665,6 +1672,7 @@ function getCombinedMessagesLists($sources, $context, $search) {
         $results = await($promise);
     } catch (\Exception $e) {
         Hm_Msgs::add($e->getMessage(), 'error');
+		     Hm_Functions::error_log(sprintf(' error processing mailbox' .$e->getMessage() ));
         return ['lists' => [], 'total' => 0, 'status' => []];
     }
 
@@ -1672,6 +1680,8 @@ function getCombinedMessagesLists($sources, $context, $search) {
     $messagesLists = [];
     $status = [];
     foreach ($results as $result) {
+	    if (!is_null($result)){
+		     Hm_Functions::error_log(sprintf(' processing mailbox'));
         $totalMessages += $result['total'];
         $status['imap_'.$result['dataSource']['id'].'_'.$result['folder']] = $result['status'];
         $messagesLists[] = array_map(function($msg) use ($result) {
@@ -1680,6 +1690,10 @@ function getCombinedMessagesLists($sources, $context, $search) {
             $msg['folder'] = $result['folder'];
             return $msg;
         }, $result['messages']);
+    }
+	    else {
+		     Hm_Functions::error_log(sprintf(' processing mailbox - result is null' ));
+	    }
     }
 
     return ['lists' => $messagesLists, 'total' => $totalMessages, 'status' => $status];
