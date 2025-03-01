@@ -3,7 +3,7 @@
 if (mb_strtolower(php_sapi_name()) !== 'cli') {
     die("Must be run from the command line\n");
 }
-
+try {
 $options = getopt('p:i:c:s:', ['app_path:', 'imports:', 'cache_id:', 'site_id:']);
 
 $appPath = $options['app_path'] ?? $options['p'] ?? '';
@@ -73,4 +73,8 @@ if ($mailbox && $mailbox->authed()) {
 } else {
     echo json_encode(['error' => 'Failed to establish connection to the mailbox.']);
     exit;
+}
+
+}catch (\Exception $e) {
+		     Hm_Functions::error_log(sprintf(' error processing mailbox' .$e->getMessage() ));
 }

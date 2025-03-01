@@ -1663,6 +1663,10 @@ function getCombinedMessagesLists($sources, $context, $search) {
                         'config' => serialize($context['config'])
                     ]));
                     $process->stdin->end();
+		    $process->stderr->on('data', function ($errorOutput) {
+			    error_log('Worker error output: ' . $errorOutput);
+			    Hm_Functions::error_log(sprintf(' worker emitted errors' . $errorOutput ));
+		    });
 
                     $process->stdout->on('data', function ($output) use ($resolve, $reject) {
                         $data = json_decode($output, true);
