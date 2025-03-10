@@ -45,6 +45,9 @@ class PageTests(WebTest):
         self.safari_workaround()
         self.wait_for_navigation_to_complete()
         assert self.by_class('mailbox_list_title').text == 'Everything'
+        sys_messages = self.by_class('sys_messages')
+        print("sys messages " + sys_messages.text)
+        self.assertEqual(sys_messages.text, "", "sys_messages element should be empty but contains text")
 
     def flagged(self):
         list_item = self.by_class('menu_flagged')
