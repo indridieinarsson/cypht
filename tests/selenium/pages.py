@@ -38,6 +38,7 @@ class PageTests(WebTest):
 
     def combined_inbox(self):
         if self.single_server():
+            print(" - single server - skipping combined_inbox test")
             return
         list_item = self.by_class('menu_combined_inbox')
         list_item.find_element(By.TAG_NAME, 'a').click()
