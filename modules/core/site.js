@@ -2311,6 +2311,9 @@ function sortHandlerForMessageListAndSearchPage() {
 
 /* executes on onload, has access to other module code */
 $(function() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register(new URL('sw.js', document.baseURI).href).catch(function() {});
+    }
     /* Remove disabled attribute to send checkbox */
     $('.save_settings').on("click", function (e) {
         $('.general_setting input[type=checkbox]').each(function () {

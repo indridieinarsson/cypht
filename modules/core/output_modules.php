@@ -493,6 +493,7 @@ class Hm_Output_header_content extends Hm_Output_Module {
             'AAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEwAACxMBAJqcGAAAAFVJR'.
             'EFUOI3NkkEKACEMA2d92fpzfVn3oHhYqAF7qIFeSpImUMjGA1jEoEQTFKAC/UDbp3bhBRqj0m7a5C78F56Rx5MEdUB'.
             'HFMlkV09ogN3xB7kG+fgA0tc160Jy09wAAAAASUVORK5CYII=" >'.
+            '<link rel="manifest" href="'.WEB_ROOT.'manifest.webmanifest" crossorigin="use-credentials" />'.
             '<base href="'.$this->html_safe($this->get('router_url_path')).'" />';
     }
 }

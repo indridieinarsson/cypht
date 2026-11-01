@@ -70,6 +70,7 @@ COPY composer.* ./
 RUN composer install
 
 COPY assets/ assets/
+COPY pwa/ pwa/
 COPY config/ config/
 COPY language/ language/
 COPY lib/ lib/
