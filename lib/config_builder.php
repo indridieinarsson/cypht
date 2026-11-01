@@ -626,6 +626,15 @@ function create_production_site($assets, $settings, $hashes) {
         copy_recursive('assets');
     }
 
+    // PWA manifest, service worker and icons are served from the site root
+    if (is_readable('pwa/')) {
+        foreach (scandir('pwa') as $file) {
+            if (is_file('pwa/'.$file)) {
+                copy('pwa/'.$file, 'site/'.$file);
+            }
+        }
+    }
+
     $index_file = file_get_contents('index.php');
     $index_file = preg_replace("/APP_PATH', ''/", "APP_PATH', '".APP_PATH."'", $index_file);
     $index_file = preg_replace("/ASSETS_PATH', APP_PATH\.'assets\/'/", "ASSETS_PATH', WEB_ROOT.'assets/'", $index_file);
